@@ -1,0 +1,83 @@
+# Example docker-compose configuration.
+# Copy to `docker-compose.yml` and adjust the host paths for your environment.
+# The real `docker-compose.yml` is gitignored because it may contain
+# host-specific paths and secrets (e.g. SSH keys).
+
+services:
+  agent-memory:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-memory
+    hostname: agent-memory
+    restart: unless-stopped
+    networks:
+      - agent-internal
+    ports:
+      - "8000:8000"
+    volumes:
+      # Host path to persistent storage (memory repo + chroma data)
+      - /path/to/your/storage/agent-memory:/data:rw
+      # SSH keys for git push to a remote repo.
+      # Paths are read from `.env` (SSH_PRIVATE_KEY_PATH / SSH_PUBLIC_KEY_PATH).
+      # Remove these lines if you don't need remote git access.
+      - ${SSH_PRIVATE_KEY_PATH}:/home/appuser/.ssh/id_ed25519:ro
+      - ${SSH_PUBLIC_KEY_PATH}:/home/appuser/.ssh/id_ed25519.pub:ro
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: 1.0
+          memory: 2G
+          pids: 50
+        reservations:
+          cpus: 0.25
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    read_only: false
+    tmpfs:
+      - /tmp:noexec,nosuid,size=512m
+      - /var/tmp:noexec,nosuid,size=512m
+
+  chromadb:
+    image: chromadb/chroma:1.0.15
+    container_name: agent-memory-chroma
+    hostname: agent-memory-chroma
+    restart: unless-stopped
+    networks:
+      - agent-internal
+    volumes:
+      - /path/to/your/storage/agent-memory/chroma:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - ANONYMIZED_TELEMETRY=False
+    deploy:
+      resources:
+        limits:
+          cpus: 1.0
+          memory: 2G
+          pids: 50
+        reservations:
+          cpus: 0.25
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: false
+    tmpfs:
+      - /tmp:noexec,nosuid,size=256m
+
+networks:
+  agent-internal:
+    external: true

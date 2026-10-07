@@ -1,0 +1,69 @@
+# TODO
+
+Findings from a code review of the Agent Memory Service. Items are grouped into **Issues & Fixes** (bugs, unfinished work, bad practices) and **Future Features** (ideas to make the tool more useful).
+
+## Issues & Fixes
+
+| #   | Area        | Issue                                             | Description                                                                                                                                                                                            |
+| --- | ----------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Security    | Path traversal                                    | `file_path` is joined to `repo_path` without validation — `../../` can read/write files outside the repo in `get`, `record`, `update`, `correct`, `archive`. Validate resolved path stays inside repo. |
+| 2   | Security    | No authentication                                 | Any agent on the network can read/write/delete all memory. Add API keys or token auth.                                                                                                                 |
+| 3   | Security    | CORS misconfiguration                             | `allow_origins=["*"]` + `allow_credentials=True` is invalid per spec and rejected by browsers. Remove credentials or restrict origins.                                                                 |
+| 4   | Bug         | `correct()` replaces all occurrences              | `str.replace(old, new)` replaces every match, not just the first. Use `replace(old, new, 1)` or reject multiple matches.                                                                               |
+| 5   | Bug         | `correct()` with empty `old_content`              | `"" in current` is always true and `"abc".replace("", "X")` inserts everywhere. Validate non-empty `old_content`.                                                                                      |
+| 6   | Bug         | `record()` silently overwrites                    | Recording to an existing file overwrites it without warning. Fail or require explicit intent.                                                                                                          |
+| 7   | Bug         | Stale vector entries                              | `rebuild_index(force=False)` upserts but never deletes entries for files removed from the repo. Prune missing ids.                                                                                     |
+| 8   | Bug         | Keyword search searches all files                 | `rg` runs on the whole repo, not just `*.md` as documented. Restrict with `-g '*.md'`.                                                                                                                 |
+| 9   | Bug         | Keyword search flag injection                     | Query starting with `-` is parsed as an rg flag. Use `rg -e <query> --` or `--`.                                                                                                                       |
+| 10  | Bug         | Hardcoded keyword score                           | All keyword results get score `0.8`, skewing hybrid ranking. Compute real relevance (match count/position).                                                                                            |
+| 11  | Bug         | `list_related()` returns the file itself          | Vector search on a file's own content returns it as top result. Exclude the source file.                                                                                                               |
+| 12  | Bug         | Duplicate health endpoints                        | `/health` (main.py) returns only `{status, service}` while `/api/v1/health` returns full status — inconsistent and undocumented. Unify.                                                                |
+| 13  | Bug         | `n_results=limit` may exceed collection size      | ChromaDB errors when requesting more results than exist. Use `min(limit, collection.count())`.                                                                                                         |
+| 14  | Bug         | `_git_commit` reports stale hash                  | When nothing to commit, `rev-parse HEAD` returns the previous commit hash — misleading response. Detect no-op commits.                                                                                 |
+| 15  | Bug         | `_git_init` skips initial commit if README exists | Empty repo with existing README never gets an initial commit. Check `git rev-parse --verify HEAD`.                                                                                                     |
+| 16  | Bug         | Mutable default args                              | `metadata: dict = {}` in `MemorySearchResult`/`MemoryGetResponse` is shared across instances. Use `Field(default_factory=dict)`.                                                                       |
+| 17  | Bug         | Invalid `search_type` silently returns empty      | Any string is accepted. Use `Literal["keyword", "vector", "hybrid"]` or return 400.                                                                                                                    |
+| 18  | Performance | Blocking calls in async routes                    | `record`, `update`, `search`, etc. are sync and block the event loop. Run in executor or make async.                                                                                                   |
+| 19  | Performance | Full index rebuild on every startup               | `initialize()` re-embeds all files each boot — slow for large repos. Skip if collection is current.                                                                                                    |
+| 20  | Reliability | Startup fails if ChromaDB is down                 | `_init_chromadb()` raises and the app won't start. Retry or start degraded.                                                                                                                            |
+| 21  | Reliability | No timeouts on git subprocesses                   | `_git_commit` can hang indefinitely. Add `timeout=` like the rg call.                                                                                                                                  |
+| 22  | Reliability | `git add .` stages everything                     | Unrelated manual changes get committed. Stage only the target file.                                                                                                                                    |
+| 23  | Config      | `LOG_LEVEL` ignored                               | Setting exists but `logging.basicConfig(level=logging.INFO)` is hardcoded in `main.py`.                                                                                                                |
+| 24  | Config      | `CHROMA_DB_PATH`/`chroma_path` unused             | ChromaDB is always an HTTP client; the path param and env var are dead config. Remove or implement local mode.                                                                                         |
+| 25  | Config      | Unused dependencies                               | `gitpython`, `pyyaml`, `python-multipart` in `requirements.txt` are never imported. Remove.                                                                                                            |
+| 26  | Config      | Empty `chroma_data/` dir in repo                  | Unused local folder confuses; ChromaDB runs in its own container. Remove or gitignore.                                                                                                                 |
+| 27  | Hygiene     | No `.gitignore`/`.dockerignore`                   | `chroma_data/`, `.env`, `__pycache__` would leak into builds. Add both.                                                                                                                                |
+| 28  | Hygiene     | No tests                                          | No test suite exists; README "Testing" is manual curl commands. Add pytest coverage.                                                                                                                   |
+| 29  | Hygiene     | No healthchecks in compose                        | Add `healthcheck:` for both containers so orchestration can detect failures.                                                                                                                           |
+| 30  | Hygiene     | `read_only: false` rootfs                         | Could be `read_only: true` (only `/data` and tmpfs need writes) — better security.                                                                                                                     |
+| 31  | Docs        | README health example wrong                       | Shows `git_repo`/`chroma_connected` in `/health` response, but `main.py` returns only `status`/`service`.                                                                                              |
+| 32  | Docs        | `search_type` not documented as enum              | Document valid values and default in README/OpenAPI.                                                                                                                                                   |
+
+## Future Features
+
+| #   | Feature                     | Description                                                                           |
+| --- | --------------------------- | ------------------------------------------------------------------------------------- |
+| 1   | Authentication              | API keys / token auth so only authorized agents access memory.                        |
+| 2   | Namespaces                  | Separate memory spaces per agent (e.g., `opencode/`, `orchestrator/`).                |
+| 3   | Memory TTL / expiry         | Auto-archive memories older than a configurable age.                                  |
+| 4   | Importance scoring          | Rank memories by importance/recency for better retrieval.                             |
+| 5   | BM25 keyword ranking        | Replace hardcoded 0.8 score with proper relevance ranking.                            |
+| 6   | Document chunking           | Split long files into overlapping chunks before embedding for better semantic recall. |
+| 7   | Frontmatter metadata        | Parse YAML frontmatter (tags, dates, links) and expose as search filters.             |
+| 8   | Search filters              | Filter by path, tag, date range, or file type.                                        |
+| 9   | Pagination                  | Offset/limit pagination for search results.                                           |
+| 10  | RAG endpoint                | Return retrieved context + generated answer for agent Q&A.                            |
+| 11  | Batch operations            | Record/update/archive multiple files in one request.                                  |
+| 12  | Web UI                      | Simple browser UI to browse, search, and edit memories.                               |
+| 13  | Git remote sync             | Push/pull to a remote repo for offsite backup and multi-host sync.                    |
+| 14  | Version diff / rollback API | Show diffs between commits and revert to a previous version via API.                  |
+| 15  | Webhooks / events           | Notify agents when memory changes (e.g., via webhook or SSE).                         |
+| 16  | Metrics                     | Prometheus metrics for usage, latency, index size.                                    |
+| 17  | Configurable embeddings     | Allow choosing the embedding model / dimension.                                       |
+| 18  | File watching               | Watch the repo and auto-index changes instead of full rebuilds.                       |
+| 19  | Semantic dedup              | Detect and merge duplicate memories.                                                  |
+| 20  | Memory consolidation        | Periodically merge related memories into summaries.                                   |
+| 21  | Export / import             | Backup and restore via API (JSON bundle).                                             |
+| 22  | Concurrency safety          | File locks / serialized writes to prevent race conditions.                            |
+| 23  | Rate limiting               | Protect the API from abuse by misbehaving agents.                                     |
+| 24  | CI/CD                       | GitHub Actions for lint, tests, and image build.                                      |

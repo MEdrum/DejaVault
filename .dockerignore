@@ -1,0 +1,45 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_ed25519
+id_ed25519.pub
+
+# --- Git / CI ---
+.git/
+.gitignore
+.github/
+.gitattributes
+
+# --- Compose (host-specific) ---
+docker-compose.yml
+docker-compose.override.yml
+docker-compose.prod.yml
+docker-compose.example.yml
+
+# --- Docs ---
+README.md
+TODO.md
+LICENSE
+CONTRIBUTING.md
+CHANGELOG.md
+SECURITY.md
+
+# --- Runtime data ---
+chroma_data/
+data/
+*.log
+
+# --- IDE ---
+.idea/
+.vscode/
+.DS_Store
