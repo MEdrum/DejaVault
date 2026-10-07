@@ -1,4 +1,4 @@
-# Agent Memory Service
+# DejaVault
 
 A self-hosted, Git-backed memory service for AI agents. It gives your agents (OpenCode, orchestrators, etc.) a persistent, versioned, searchable memory store exposed through a simple REST API.
 
@@ -34,7 +34,7 @@ A self-hosted, Git-backed memory service for AI agents. It gives your agents (Op
 
 ## What is it?
 
-The Agent Memory Service is a small REST API that gives AI agents a **durable, versioned memory**. Instead of letting agents write directly to files (which is hard to audit and easy to corrupt), all memory writes go through this service, which:
+The DejaVault service is a small REST API that gives AI agents a **durable, versioned memory**. Instead of letting agents write directly to files (which is hard to audit and easy to corrupt), all memory writes go through this service, which:
 
 1. Stores memory as **Markdown files** in a Git repository (canonical, human-readable, versioned).
 2. Keeps a **vector index** (ChromaDB) for semantic search.
@@ -84,10 +84,10 @@ docker compose up -d --build
 
 This starts two containers:
 
-| Container             | Purpose                     |
-| --------------------- | --------------------------- |
-| `agent-memory`        | FastAPI service (port 8000) |
-| `agent-memory-chroma` | ChromaDB vector database    |
+| Container          | Purpose                     |
+| ------------------ | --------------------------- |
+| `dejavault`        | FastAPI service (port 8000) |
+| `dejavault-chroma` | ChromaDB vector database    |
 
 ### 4. Verify it's running
 
@@ -100,7 +100,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "service": "agent-memory",
+  "service": "dejavault",
   "git_repo": "/data/memory",
   "chroma_connected": true
 }
@@ -239,7 +239,7 @@ POST /api/v1/rebuild-index
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Agent Memory Service                     │
+│                        DejaVault                            │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │ FastAPI     │  │    Git      │  │   ChromaDB          │  │
 │  │ (port 8000) │  │   (repo)    │  │   (vector index)    │  │
@@ -276,9 +276,9 @@ The real `docker-compose.yml` is gitignored because it contains host-specific pa
 
 ```yaml
 services:
-  agent-memory:
+  dejavault:
     build: .
-    container_name: agent-memory
+    container_name: dejavault
     ports:
       - "8000:8000"
     volumes:
@@ -290,7 +290,7 @@ services:
 
   chromadb:
     image: chromadb/chroma:1.0.15
-    container_name: agent-memory-chroma
+    container_name: dejavault-chroma
     volumes:
       - /path/to/your/storage/agent-memory/chroma:/chroma/chroma
     networks:
@@ -330,17 +330,17 @@ All settings are read from environment variables. Copy [`.env.example`](./.env.e
 cp .env.example .env
 ```
 
-| Variable         | Default             | Description                 |
-| ---------------- | ------------------- | --------------------------- |
-| MEMORY_REPO_PATH | /data/memory        | Path to markdown repository |
-| CHROMA_DB_PATH   | /data/chroma        | Path to ChromaDB data       |
-| API_HOST         | 0.0.0.0             | API bind address            |
-| API_PORT         | 8000                | API port                    |
-| CHROMA_HOST      | agent-memory-chroma | ChromaDB hostname           |
-| CHROMA_PORT      | 8000                | ChromaDB port               |
-| GIT_AUTHOR_NAME  | Agent Memory        | Git commit author name      |
-| GIT_AUTHOR_EMAIL | agent-memory@local  | Git commit author email     |
-| LOG_LEVEL        | INFO                | Logging level               |
+| Variable         | Default          | Description                 |
+| ---------------- | ---------------- | --------------------------- |
+| MEMORY_REPO_PATH | /data/memory     | Path to markdown repository |
+| CHROMA_DB_PATH   | /data/chroma     | Path to ChromaDB data       |
+| API_HOST         | 0.0.0.0          | API bind address            |
+| API_PORT         | 8000             | API port                    |
+| CHROMA_HOST      | dejavault-chroma | ChromaDB hostname           |
+| CHROMA_PORT      | 8000             | ChromaDB port               |
+| GIT_AUTHOR_NAME  | DejaVault        | Git commit author name      |
+| GIT_AUTHOR_EMAIL | dejavault@local  | Git commit author email     |
+| LOG_LEVEL        | INFO             | Logging level               |
 
 ## Operations
 
@@ -350,7 +350,7 @@ The service manages Git automatically:
 
 - Initializes repo on first run
 - Commits on every record/update/correct/archive
-- Uses configured author: "Agent Memory" <agent-memory@local>
+- Uses configured author: "DejaVault" <dejavault@local>
 - Branch: `main`
 
 #### Manual Git Access
@@ -386,7 +386,7 @@ curl -X POST http://localhost:8000/api/v1/rebuild-index \
   -d '{"force": true}'
 
 # Or manually
-docker exec agent-memory python -c "
+docker exec dejavault python -c "
 from app.services.memory_service import MemoryService
 import asyncio
 svc = MemoryService('/data/memory', '/data/chroma')
@@ -398,13 +398,13 @@ asyncio.run(svc.rebuild_index(force=True))
 
 ```bash
 # Check container health
-docker ps --filter name=agent-memory
+docker ps --filter name=dejavault
 
 # View logs
-docker logs agent-memory -f
+docker logs dejavault -f
 
 # Check resource usage
-docker stats agent-memory agent-memory-chroma
+docker stats dejavault dejavault-chroma
 ```
 
 ### Backup
@@ -426,8 +426,8 @@ sudo btrfs subvolume snapshot /home/fabian/docker/storage/agent-memory /home/fab
 #### Container Restart
 
 ```bash
-docker restart agent-memory
-docker restart agent-memory-chroma
+docker restart dejavault
+docker restart dejavault-chroma
 ```
 
 #### Host Restart
@@ -444,8 +444,8 @@ curl -X POST http://localhost:8000/api/v1/rebuild-index \
 
 # Or delete chroma data and restart
 rm -rf /home/fabian/docker/storage/agent-memory/chroma/*
-docker restart agent-memory-chroma
-docker restart agent-memory
+docker restart dejavault-chroma
+docker restart dejavault
 ```
 
 #### Git Repository Recovery
@@ -479,10 +479,10 @@ cd /home/fabian/docker/storage/agent-memory/memory && git status
 
 ```bash
 # Check chroma container
-docker logs agent-memory-chroma
+docker logs dejavault-chroma
 
 # Verify network
-docker exec agent-memory ping agent-memory-chroma
+docker exec dejavault ping dejavault-chroma
 
 # Check chroma health
 curl http://localhost:8000/api/v2/heartbeat
@@ -511,7 +511,7 @@ git fsck
 ### Project Structure
 
 ```
-agent-memory/
+dejavault/
 ├── app/
 │   ├── main.py                 # FastAPI app entry point
 │   ├── api/

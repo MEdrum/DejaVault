@@ -4,12 +4,12 @@
 # host-specific paths and secrets (e.g. SSH keys).
 
 services:
-  agent-memory:
+  dejavault:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: agent-memory
-    hostname: agent-memory
+    container_name: dejavault
+    hostname: dejavault
     restart: unless-stopped
     networks:
       - agent-internal
@@ -50,8 +50,8 @@ services:
 
   chromadb:
     image: chromadb/chroma:1.0.15
-    container_name: agent-memory-chroma
-    hostname: agent-memory-chroma
+    container_name: dejavault-chroma
+    hostname: dejavault-chroma
     restart: unless-stopped
     networks:
       - agent-internal

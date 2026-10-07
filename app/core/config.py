@@ -7,10 +7,10 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     LOG_LEVEL: str = "INFO"
-    CHROMA_HOST: str = "agent-memory-chroma"
+    CHROMA_HOST: str = "dejavault-chroma"
     CHROMA_PORT: int = 8000
-    GIT_AUTHOR_NAME: str = "Agent Memory"
-    GIT_AUTHOR_EMAIL: str = "agent-memory@local"
+    GIT_AUTHOR_NAME: str = "DejaVault"
+    GIT_AUTHOR_EMAIL: str = "dejavault@local"
 
     class Config:
         env_file = ".env"

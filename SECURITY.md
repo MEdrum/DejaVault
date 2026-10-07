@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in the Agent Memory Service, please **do not open a public issue**.
+If you discover a security vulnerability in DejaVault, please **do not open a public issue**.
 
 Instead, report it privately by emailing the maintainers or opening a [private security advisory](https://github.com/<owner>/<repo>/security/advisories/new) on GitHub.
 

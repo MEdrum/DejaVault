@@ -1,4 +1,4 @@
-# Contributing to Agent Memory Service
+# Contributing to DejaVault
 
 Thanks for your interest in contributing! Here's how to get started.
 
@@ -7,7 +7,7 @@ Thanks for your interest in contributing! Here's how to get started.
 ```bash
 # Clone the repo
 git clone <your-fork-url>
-cd agent-memory
+cd dejavault
 
 # Create a virtual environment
 python -m venv .venv

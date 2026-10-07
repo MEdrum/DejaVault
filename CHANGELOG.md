@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed project from "Agent Memory Service" to **DejaVault** (service name, container names, git author, docs).
+
 ### Added
 
 - Initial project scaffolding for GitHub: `.gitignore`, `.dockerignore`, `.env.example`, `docker-compose.example.yml`, `LICENSE`, `CONTRIBUTING.md`, `CHANGELOG.md`, `SECURITY.md`, GitHub PR template and CI workflow.

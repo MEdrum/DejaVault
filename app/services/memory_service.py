@@ -43,7 +43,7 @@ class MemoryService:
         # Create initial commit if empty
         readme = self.repo_path / "README.md"
         if not readme.exists():
-            readme.write_text("# Agent Memory Repository\n\nCanonical memory storage.")
+            readme.write_text("# DejaVault Repository\n\nCanonical memory storage.")
             subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True)
             subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_path, check=True)
             
@@ -266,7 +266,7 @@ class MemoryService:
                 pass
         return {
             "status": "healthy",
-            "service": "agent-memory",
+            "service": "dejavault",
             "git_repo": str(self.repo_path),
             "chroma_connected": chroma_connected
         }

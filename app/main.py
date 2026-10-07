@@ -13,19 +13,19 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Agent Memory Service...")
+    logger.info("Starting DejaVault...")
     memory_service = MemoryService(
         repo_path=settings.MEMORY_REPO_PATH,
         chroma_path=settings.CHROMA_DB_PATH
     )
     await memory_service.initialize()
     app.state.memory_service = memory_service
-    logger.info("Agent Memory Service started")
+    logger.info("DejaVault started")
     yield
-    logger.info("Shutting down Agent Memory Service...")
+    logger.info("Shutting down DejaVault...")
 
 app = FastAPI(
-    title="Agent Memory Service",
+    title="DejaVault",
     description="Memory service with Markdown Git repository and vector search",
     version="1.0.0",
     lifespan=lifespan
@@ -43,7 +43,7 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "agent-memory"}
+    return {"status": "healthy", "service": "dejavault"}
 
 if __name__ == "__main__":
     import uvicorn

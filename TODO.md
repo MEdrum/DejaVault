@@ -1,6 +1,6 @@
 # TODO
 
-Findings from a code review of the Agent Memory Service. Items are grouped into **Issues & Fixes** (bugs, unfinished work, bad practices) and **Future Features** (ideas to make the tool more useful).
+Findings from a code review of DejaVault. Items are grouped into **Issues & Fixes** (bugs, unfinished work, bad practices) and **Future Features** (ideas to make the tool more useful).
 
 ## Issues & Fixes
 
