@@ -1,6 +1,5 @@
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime
 
 
 class MemorySearchRequest(BaseModel):
@@ -17,7 +16,7 @@ class MemorySearchResult(BaseModel):
 
 
 class MemorySearchResponse(BaseModel):
-    results: List[MemorySearchResult]
+    results: list[MemorySearchResult]
     total: int
     query: str
 
@@ -35,7 +34,7 @@ class MemoryGetResponse(BaseModel):
 class MemoryRecordRequest(BaseModel):
     file_path: str
     content: str
-    commit_message: Optional[str] = None
+    commit_message: str | None = None
 
 
 class MemoryRecordResponse(BaseModel):
@@ -47,7 +46,7 @@ class MemoryRecordResponse(BaseModel):
 class MemoryUpdateRequest(BaseModel):
     file_path: str
     content: str
-    commit_message: Optional[str] = None
+    commit_message: str | None = None
 
 
 class MemoryUpdateResponse(BaseModel):
@@ -60,7 +59,7 @@ class MemoryCorrectRequest(BaseModel):
     file_path: str
     old_content: str
     new_content: str
-    commit_message: Optional[str] = None
+    commit_message: str | None = None
 
 
 class MemoryCorrectResponse(BaseModel):
@@ -71,7 +70,7 @@ class MemoryCorrectResponse(BaseModel):
 
 class MemoryArchiveRequest(BaseModel):
     file_path: str
-    commit_message: Optional[str] = None
+    commit_message: str | None = None
 
 
 class MemoryArchiveResponse(BaseModel):
@@ -86,7 +85,7 @@ class MemoryListRelatedRequest(BaseModel):
 
 
 class MemoryListRelatedResponse(BaseModel):
-    related: List[MemorySearchResult]
+    related: list[MemorySearchResult]
 
 
 class IndexRebuildRequest(BaseModel):

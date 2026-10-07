@@ -1,15 +1,19 @@
+import logging
 import os
 import subprocess
-import logging
 from pathlib import Path
-from typing import List, Optional
+
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 
-from app.models.schemas import MemorySearchResult
 from app.core.config import settings
+from app.models.schemas import MemorySearchResult
 
 logger = logging.getLogger(__name__)
+
+
+class GitCommitError(Exception):
+    """Raised when a git commit operation fails."""
 
 
 class MemoryService:
@@ -86,7 +90,7 @@ class MemoryService:
                         ids=[str(relative_path)]
                     )
                     files_indexed += 1
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - log and continue indexing
                 logger.warning(f"Failed to index {md_file}: {e}")
                 
         logger.info(f"Indexed {files_indexed} files")
@@ -95,14 +99,26 @@ class MemoryService:
     def _git_commit(self, message: str) -> str:
         """Commit changes and return commit hash."""
         subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True)
-        result = subprocess.run(["git", "commit", "-m", message], cwd=self.repo_path, capture_output=True, text=True)
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            cwd=self.repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if result.returncode != 0 and "nothing to commit" not in result.stdout:
-            raise Exception(f"Git commit failed: {result.stderr}")
+            raise GitCommitError(f"Git commit failed: {result.stderr}")
         # Get commit hash
-        result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=self.repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         return result.stdout.strip()
         
-    def search(self, query: str, limit: int = 10, search_type: str = "hybrid") -> List[MemorySearchResult]:
+    def search(self, query: str, limit: int = 10, search_type: str = "hybrid") -> list[MemorySearchResult]:
         """Search memory using keyword, vector, or hybrid search."""
         results = []
         
@@ -119,7 +135,7 @@ class MemoryService:
                         score=1.0 - chroma_results["distances"][0][i] if chroma_results["distances"] else 1.0,
                         metadata=chroma_results["metadatas"][0][i]
                     ))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - log and fall back to keyword
                 logger.warning(f"Vector search failed: {e}")
                 
         if search_type in ("keyword", "hybrid"):
@@ -127,7 +143,7 @@ class MemoryService:
             try:
                 rg_result = subprocess.run(
                     ["rg", "--json", "-i", query, str(self.repo_path)],
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, timeout=10, check=False
                 )
                 for line in rg_result.stdout.strip().split("\n"):
                     if line:
@@ -143,7 +159,7 @@ class MemoryService:
                                 score=0.8,
                                 metadata={"file_path": rel_path}
                             ))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - log and return partial results
                 logger.warning(f"Keyword search failed: {e}")
                 
         # Deduplicate and sort by score
@@ -158,7 +174,7 @@ class MemoryService:
         unique_results.sort(key=lambda x: x.score, reverse=True)
         return unique_results[:limit]
         
-    def get(self, file_path: str) -> Optional[dict]:
+    def get(self, file_path: str) -> dict | None:
         """Get a memory file by path."""
         full_path = self.repo_path / file_path
         if not full_path.exists() or not full_path.is_file():
@@ -166,7 +182,7 @@ class MemoryService:
         content = full_path.read_text(encoding="utf-8")
         return {"file_path": file_path, "content": content, "metadata": {"file_path": file_path}}
         
-    def record(self, file_path: str, content: str, commit_message: Optional[str] = None) -> dict:
+    def record(self, file_path: str, content: str, commit_message: str | None = None) -> dict:
         """Record new memory."""
         full_path = self.repo_path / file_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
@@ -185,7 +201,7 @@ class MemoryService:
             
         return {"file_path": file_path, "commit_hash": commit_hash, "message": msg}
         
-    def update(self, file_path: str, content: str, commit_message: Optional[str] = None) -> dict:
+    def update(self, file_path: str, content: str, commit_message: str | None = None) -> dict:
         """Update existing memory."""
         full_path = self.repo_path / file_path
         if not full_path.exists():
@@ -205,7 +221,7 @@ class MemoryService:
             
         return {"file_path": file_path, "commit_hash": commit_hash, "message": msg}
         
-    def correct(self, file_path: str, old_content: str, new_content: str, commit_message: Optional[str] = None) -> dict:
+    def correct(self, file_path: str, old_content: str, new_content: str, commit_message: str | None = None) -> dict:
         """Correct memory content."""
         full_path = self.repo_path / file_path
         if not full_path.exists():
@@ -229,7 +245,7 @@ class MemoryService:
             
         return {"file_path": file_path, "commit_hash": commit_hash, "message": msg}
         
-    def archive(self, file_path: str, commit_message: Optional[str] = None) -> dict:
+    def archive(self, file_path: str, commit_message: str | None = None) -> dict:
         """Archive (delete) a memory file."""
         full_path = self.repo_path / file_path
         if not full_path.exists():
@@ -243,12 +259,12 @@ class MemoryService:
         if self.collection:
             try:
                 self.collection.delete(ids=[file_path])
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - index cleanup is best-effort
+                logger.warning(f"Failed to remove {file_path} from vector index: {e}")
             
         return {"file_path": file_path, "commit_hash": commit_hash, "message": msg}
         
-    def list_related(self, file_path: str, limit: int = 5) -> List[MemorySearchResult]:
+    def list_related(self, file_path: str, limit: int = 5) -> list[MemorySearchResult]:
         """List related memories."""
         content = self.get(file_path)
         if not content:
@@ -262,8 +278,8 @@ class MemoryService:
             try:
                 self.chroma_client.heartbeat()
                 chroma_connected = True
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - report connectivity status
+                logger.warning(f"ChromaDB heartbeat failed: {e}")
         return {
             "status": "healthy",
             "service": "dejavault",
