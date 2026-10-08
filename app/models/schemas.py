@@ -12,7 +12,7 @@ class MemorySearchResult(BaseModel):
     file_path: str
     content: str
     score: float
-    metadata: dict = {}
+    metadata: dict = Field(default_factory=dict)
 
 
 class MemorySearchResponse(BaseModel):
@@ -28,7 +28,7 @@ class MemoryGetRequest(BaseModel):
 class MemoryGetResponse(BaseModel):
     file_path: str
     content: str
-    metadata: dict = {}
+    metadata: dict = Field(default_factory=dict)
 
 
 class MemoryRecordRequest(BaseModel):
