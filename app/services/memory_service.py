@@ -167,10 +167,13 @@ class MemoryService:
                 logger.warning(f"Vector search failed: {e}")
                 
         if search_type in ("keyword", "hybrid"):
-            # Use ripgrep for keyword search
+            # Use ripgrep for keyword search.
+            # -g '*.md' restricts to markdown files (issue #8).
+            # -e treats the query as a pattern, so leading '-' is not
+            #   parsed as a flag (issue #9).
             try:
                 rg_result = subprocess.run(
-                    ["rg", "--json", "-i", query, str(self.repo_path)],
+                    ["rg", "--json", "-i", "-g", "*.md", "-e", query, str(self.repo_path)],
                     capture_output=True, text=True, timeout=10, check=False
                 )
                 for line in rg_result.stdout.strip().split("\n"):
