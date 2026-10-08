@@ -68,7 +68,11 @@ class MemoryService:
         )
         
     async def rebuild_index(self, force: bool = False) -> dict:
-        """Rebuild the vector index from markdown files."""
+        """Rebuild the vector index from markdown files.
+
+        Upserts all current ``*.md`` files and prunes stale entries
+        (files that no longer exist in the repository).
+        """
         if not self.collection:
             await self._init_chromadb()
             
@@ -81,6 +85,7 @@ class MemoryService:
             )
             
         files_indexed = 0
+        indexed_ids: set[str] = set()
         for md_file in self.repo_path.rglob("*.md"):
             if md_file.name.startswith(".") or ".git" in md_file.parts:
                 continue
@@ -88,15 +93,27 @@ class MemoryService:
                 content = md_file.read_text(encoding="utf-8")
                 if content.strip():
                     relative_path = md_file.relative_to(self.repo_path)
+                    doc_id = str(relative_path)
                     self.collection.upsert(
                         documents=[content],
-                        metadatas=[{"file_path": str(relative_path)}],
-                        ids=[str(relative_path)]
+                        metadatas=[{"file_path": doc_id}],
+                        ids=[doc_id]
                     )
+                    indexed_ids.add(doc_id)
                     files_indexed += 1
             except Exception as e:  # noqa: BLE001 - log and continue indexing
                 logger.warning(f"Failed to index {md_file}: {e}")
-                
+
+        # Prune stale entries (files removed from the repo)
+        try:
+            existing_ids = self.collection.get(include=[])["ids"]
+            stale_ids = [i for i in existing_ids if i not in indexed_ids]
+            if stale_ids:
+                self.collection.delete(ids=stale_ids)
+                logger.info(f"Pruned {len(stale_ids)} stale entries from vector index")
+        except Exception as e:  # noqa: BLE001 - pruning is best-effort
+            logger.warning(f"Failed to prune stale vector entries: {e}")
+
         logger.info(f"Indexed {files_indexed} files")
         return {"status": "success", "files_indexed": files_indexed}
         
