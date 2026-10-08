@@ -130,9 +130,16 @@ class MemoryService:
         logger.info(f"Indexed {files_indexed} files")
         return {"status": "success", "files_indexed": files_indexed}
         
-    def _git_commit(self, message: str) -> str:
-        """Commit changes and return commit hash."""
-        subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT)
+    def _git_commit(self, message: str, file_path: str) -> str:
+        """Commit changes to a single file and return commit hash.
+
+        Only the given file is staged, so unrelated manual changes in
+        the repository are not swept into the commit.
+        """
+        subprocess.run(
+            ["git", "add", "--", file_path],
+            cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT,
+        )
         result = subprocess.run(
             ["git", "commit", "-m", message],
             cwd=self.repo_path,
@@ -253,7 +260,7 @@ class MemoryService:
         full_path.write_text(content, encoding="utf-8")
         
         msg = commit_message or f"Record memory: {file_path}"
-        commit_hash = self._git_commit(msg)
+        commit_hash = self._git_commit(msg, file_path)
         
         # Update vector index
         if self.collection:
@@ -273,7 +280,7 @@ class MemoryService:
         full_path.write_text(content, encoding="utf-8")
         
         msg = commit_message or f"Update memory: {file_path}"
-        commit_hash = self._git_commit(msg)
+        commit_hash = self._git_commit(msg, file_path)
         
         # Update vector index
         if self.collection:
@@ -299,7 +306,7 @@ class MemoryService:
         full_path.write_text(new_full, encoding="utf-8")
         
         msg = commit_message or f"Correct memory: {file_path}"
-        commit_hash = self._git_commit(msg)
+        commit_hash = self._git_commit(msg, file_path)
         
         # Update vector index
         if self.collection:
@@ -319,7 +326,7 @@ class MemoryService:
         full_path.unlink()
         
         msg = commit_message or f"Archive memory: {file_path}"
-        commit_hash = self._git_commit(msg)
+        commit_hash = self._git_commit(msg, file_path)
         
         # Remove from vector index
         if self.collection:

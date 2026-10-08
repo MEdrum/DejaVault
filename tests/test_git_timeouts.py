@@ -51,7 +51,7 @@ class TestGitCommitTimeouts:
             return mock.Mock(returncode=0)
 
         with mock.patch("subprocess.run", side_effect=fake_run) as mock_run:
-            result = service._git_commit("test message")
+            result = service._git_commit("test message", "test.md")
 
         assert result == "abc123"
         assert mock_run.call_count == 3
@@ -66,7 +66,7 @@ class TestGitCommitTimeouts:
             side_effect=TimeoutExpired("git", 30),
         ):
             with pytest.raises(TimeoutExpired):
-                service._git_commit("test message")
+                service._git_commit("test message", "test.md")
 
 
 class TimeoutExpired(Exception):
