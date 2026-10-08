@@ -8,7 +8,7 @@ from app.api.routes import router as api_router
 from app.core.config import settings
 from app.services.memory_service import MemoryService
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 logger = logging.getLogger(__name__)
 
 
