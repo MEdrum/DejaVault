@@ -1,11 +1,15 @@
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class MemorySearchRequest(BaseModel):
     query: str = Field(..., description="Search query")
     limit: int = Field(10, ge=1, le=100, description="Maximum results")
-    search_type: str = Field("hybrid", description="keyword, vector, or hybrid")
+    search_type: Literal["keyword", "vector", "hybrid"] = Field(
+        "hybrid", description="keyword, vector, or hybrid"
+    )
 
 
 class MemorySearchResult(BaseModel):

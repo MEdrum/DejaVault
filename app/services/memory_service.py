@@ -140,7 +140,14 @@ class MemoryService:
         return result.stdout.strip()
         
     def search(self, query: str, limit: int = 10, search_type: str = "hybrid") -> list[MemorySearchResult]:
-        """Search memory using keyword, vector, or hybrid search."""
+        """Search memory using keyword, vector, or hybrid search.
+
+        Raises:
+            ValueError: if ``search_type`` is not one of
+                "keyword", "vector", or "hybrid".
+        """
+        if search_type not in ("keyword", "vector", "hybrid"):
+            raise ValueError(f"Invalid search_type: {search_type!r} (expected keyword, vector, or hybrid)")
         results = []
         
         if search_type in ("vector", "hybrid") and self.collection:
