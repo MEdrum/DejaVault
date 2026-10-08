@@ -3,5 +3,6 @@ uvicorn[standard]==0.30.6
 pydantic==2.9.2
 pydantic-settings==2.6.1
 chromadb==1.0.15
+mcp==2.3.0
 pytest==8.3.4
 pytest-asyncio==0.24.0
