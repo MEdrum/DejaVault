@@ -19,6 +19,24 @@ from app.services.memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
+# Separator between multi-result blocks. A line of 40 '=' characters is
+# unambiguous — it cannot appear in normal markdown content.
+RESULT_SEPARATOR = "=" * 40
+
+
+def _format_result_block(score: float, file_path: str, content: str, max_chars: int) -> str:
+    """Format a single search result with an explicit EOF marker.
+
+    The EOF marker makes the block boundary unambiguous even when the
+    content contains blank lines or markdown separators.
+    """
+    return (
+        f"[{score:.3f}] {file_path}\n"
+        f"{content[:max_chars]}\n"
+        f"--- <EOF {file_path}> ---\n"
+        f"{RESULT_SEPARATOR}"
+    )
+
 
 def create_mcp_server(service: MemoryService) -> MCPServer:
     """Create an MCPServer exposing the memory service as tools."""
@@ -35,9 +53,12 @@ def create_mcp_server(service: MemoryService) -> MCPServer:
             "- search_type: 'hybrid' (default, best quality), 'keyword' (exact text match), "
             "or 'vector' (semantic similarity).\n\n"
             "RESPONSE FORMAT:\n"
-            "One block per result, separated by blank lines:\n"
+            "Each result block ends with an explicit EOF marker:\n"
             "  [score] file_path\n"
-            "  content (first 500 chars)\n"
+            "  content (first 500 chars, may contain blank lines)\n"
+            "  --- <EOF file_path> ---\n"
+            "  ================ (40 '=' characters)\n"
+            "The '--- <EOF ...> ---' line marks the end of one file's content.\n"
             "Higher score = more relevant. If nothing matches, returns exactly: 'No results found.'"
         )
     )
@@ -45,9 +66,11 @@ def create_mcp_server(service: MemoryService) -> MCPServer:
         """Search memories using keyword, vector, or hybrid search."""
         try:
             results = service.search(query, limit, search_type)
+            if not results:
+                return "No results found."
             return "\n".join(
-                f"[{r.score:.3f}] {r.file_path}\n{r.content[:500]}" for r in results
-            ) or "No results found."
+                _format_result_block(r.score, r.file_path, r.content, 500) for r in results
+            )
         except ValueError as e:
             return f"Error: {e}"
 
@@ -182,18 +205,23 @@ def create_mcp_server(service: MemoryService) -> MCPServer:
             "- file_path: path to the memory file to find related memories for (required).\n"
             "- limit: max related results, 1-20 (default 5).\n\n"
             "RESPONSE FORMAT:\n"
-            "One block per related memory, separated by blank lines:\n"
+            "Each result block ends with an explicit EOF marker:\n"
             "  [score] file_path\n"
-            "  content (first 300 chars)\n"
+            "  content (first 300 chars, may contain blank lines)\n"
+            "  --- <EOF file_path> ---\n"
+            "  ================ (40 '=' characters)\n"
+            "The '--- <EOF ...> ---' line marks the end of one file's content.\n"
             "If none found or the file does not exist, returns: 'No related memories found.'"
         )
     )
     def list_related(file_path: str, limit: int = 5) -> str:
         """List memories related to a given file."""
         related = service.list_related(file_path, limit)
+        if not related:
+            return "No related memories found."
         return "\n".join(
-            f"[{r.score:.3f}] {r.file_path}\n{r.content[:300]}" for r in related
-        ) or "No related memories found."
+            _format_result_block(r.score, r.file_path, r.content, 300) for r in related
+        )
 
     @server.tool(
         description=(

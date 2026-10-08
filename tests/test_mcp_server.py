@@ -5,6 +5,7 @@ functions by invoking them through the MCPServer's public API.
 """
 
 import asyncio
+from unittest import mock
 
 import pytest
 
@@ -87,3 +88,78 @@ class TestMCPToolBehavior:
         # File must be unchanged
         content = call_tool(mcp_server, "get_memory", file_path="test.md")
         assert content == "foo bar foo"
+
+
+class TestMCPResponseFormat:
+    """Verify multi-result responses use explicit EOF markers.
+
+    Blank lines are ambiguous because markdown content itself contains
+    blank lines. Each result block must end with '--- <EOF path> ---'
+    followed by a line of 40 '=' characters.
+    """
+
+    SEPARATOR = "=" * 40
+
+    def test_search_uses_eof_markers(self, mcp_server, service: MemoryService):
+        from app.models.schemas import MemorySearchResult
+
+        fake_results = [
+            MemorySearchResult(file_path="a.md", content="# A\n\npara one\n\npara two", score=0.9),
+            MemorySearchResult(file_path="b.md", content="# B\n\nother content", score=0.8),
+        ]
+        with mock.patch.object(service, "search", return_value=fake_results):
+            result = call_tool(mcp_server, "search_memory", query="anything")
+
+        # Each block must have an EOF marker and the 40-char separator
+        assert "--- <EOF a.md> ---" in result
+        assert "--- <EOF b.md> ---" in result
+        assert self.SEPARATOR in result
+
+        # Splitting on the separator yields one block per result
+        blocks = [b for b in result.split(self.SEPARATOR) if b.strip()]
+        assert len(blocks) == 2
+        assert blocks[0].strip().startswith("[0.900] a.md")
+        assert blocks[0].strip().endswith("--- <EOF a.md> ---")
+        assert blocks[1].strip().startswith("[0.800] b.md")
+        assert blocks[1].strip().endswith("--- <EOF b.md> ---")
+
+    def test_search_content_with_blank_lines_stays_in_one_block(self, mcp_server, service: MemoryService):
+        """Blank lines inside content must NOT split the block."""
+        from app.models.schemas import MemorySearchResult
+
+        content = "# A\n\npara one\n\npara two\n\npara three"
+        fake_results = [MemorySearchResult(file_path="a.md", content=content, score=0.9)]
+        with mock.patch.object(service, "search", return_value=fake_results):
+            result = call_tool(mcp_server, "search_memory", query="anything")
+
+        # The whole content must be inside the single block
+        assert "para one" in result
+        assert "para three" in result
+        assert result.count("--- <EOF a.md> ---") == 1
+
+    def test_search_no_results_returns_exact_string(self, mcp_server, service: MemoryService):
+        with mock.patch.object(service, "search", return_value=[]):
+            result = call_tool(mcp_server, "search_memory", query="nothing")
+        assert result == "No results found."
+
+    def test_list_related_uses_eof_markers(self, mcp_server, service: MemoryService):
+        from app.models.schemas import MemorySearchResult
+
+        fake_results = [
+            MemorySearchResult(file_path="x.md", content="content x", score=0.7),
+            MemorySearchResult(file_path="y.md", content="content y", score=0.6),
+        ]
+        with mock.patch.object(service, "list_related", return_value=fake_results):
+            result = call_tool(mcp_server, "list_related", file_path="base.md")
+
+        assert "--- <EOF x.md> ---" in result
+        assert "--- <EOF y.md> ---" in result
+        blocks = [b for b in result.split(self.SEPARATOR) if b.strip()]
+        assert len(blocks) == 2
+        assert blocks[0].strip().startswith("[0.700] x.md")
+        assert blocks[1].strip().startswith("[0.600] y.md")
+
+    def test_list_related_no_results_returns_exact_string(self, mcp_server, service: MemoryService):
+        with mock.patch.object(service, "list_related", return_value=[]):
+            result = call_tool(mcp_server, "list_related", file_path="base.md")
+        assert result == "No related memories found."
