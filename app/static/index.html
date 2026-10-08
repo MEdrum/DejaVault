@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DejaVault</title>
+    <style>
+      :root {
+        --bg: #1e1e2e;
+        --panel: #27293d;
+        --accent: #7c5cff;
+        --text: #e4e4ef;
+        --muted: #9a9ab0;
+        --border: #3a3d52;
+        --ok: #4ade80;
+        --err: #f87171;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        min-height: 100vh;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      header h1 {
+        font-size: 20px;
+        margin: 0;
+      }
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--muted);
+        display: inline-block;
+      }
+      .status-dot.ok {
+        background: var(--ok);
+      }
+      .status-dot.err {
+        background: var(--err);
+      }
+      .status-text {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .panel h2 {
+        font-size: 15px;
+        margin: 0 0 12px;
+        color: var(--accent);
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 8px 0 4px;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        background: #1a1b28;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 8px 10px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+        font-family: ui-monospace, monospace;
+      }
+      button {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 14px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      button.secondary {
+        background: #3a3d52;
+        color: var(--text);
+      }
+      button.danger {
+        background: #b91c1c;
+        color: #fff;
+      }
+      .result {
+        background: #1a1b28;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 10px;
+        max-height: 300px;
+        overflow: auto;
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .result.ok {
+        border-color: var(--ok);
+      }
+      .result.err {
+        border-color: var(--err);
+      }
+      .result pre {
+        margin: 0;
+      }
+      .search-result {
+        background: #1a1b28;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 8px;
+        cursor: pointer;
+      }
+      .search-result .path {
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .search-result .score {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .search-result .snippet {
+        color: var(--text);
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .hidden {
+        display: none;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .tab {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tab.active {
+        background: var(--accent);
+        color: #fff;
+      }
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 16px;
+        max-width: 400px;
+        z-index: 100;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+      .toast.ok {
+        border-color: var(--ok);
+      }
+      .toast.err {
+        border-color: var(--err);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>🔐 DejaVault</h1>
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-text" id="status-text">Checking…</span>
+    </header>
+
+    <main>
+      <!-- ============ SEARCH ============ -->
+      <section class="panel">
+        <h2>🔍 Search</h2>
+        <label for="search-query">Query</label>
+        <input id="search-query" type="text" placeholder="Search term…" />
+        <label for="search-type">Search type</label>
+        <select id="search-type">
+          <option value="hybrid">Hybrid</option>
+          <option value="keyword">Keyword</option>
+          <option value="vector">Vector</option>
+        </select>
+        <label for="search-limit">Limit</label>
+        <input id="search-limit" type="number" value="10" min="1" max="100" />
+        <button onclick="doSearch()">Search</button>
+        <div id="search-results"></div>
+      </section>
+
+      <!-- ============ GET / VIEW ============ -->
+      <section class="panel">
+        <h2>📄 View Memory</h2>
+        <label for="get-path">File path</label>
+        <input id="get-path" type="text" placeholder="path/to/file.md" />
+        <button onclick="doGet()">Load</button>
+        <div class="result hidden" id="get-result"></div>
+      </section>
+
+      <!-- ============ WRITE (record/update/correct) ============ -->
+      <section class="panel">
+        <h2>✏️ Write Memory</h2>
+        <div class="tabs">
+          <button
+            class="tab active"
+            data-tab="record"
+            onclick="switchTab('record')"
+          >
+            Record
+          </button>
+          <button class="tab" data-tab="update" onclick="switchTab('update')">
+            Update
+          </button>
+          <button class="tab" data-tab="correct" onclick="switchTab('correct')">
+            Correct
+          </button>
+        </div>
+        <div id="tab-record">
+          <label for="record-path">File path</label>
+          <input id="record-path" type="text" placeholder="path/to/new.md" />
+          <label for="record-content">Content (Markdown)</label>
+          <textarea
+            id="record-content"
+            placeholder="# Title&#10;&#10;Content…"
+          ></textarea>
+          <label for="record-msg">Commit message (optional)</label>
+          <input id="record-msg" type="text" placeholder="Record memory: …" />
+          <button onclick="doRecord()">Record</button>
+        </div>
+        <div id="tab-update" class="hidden">
+          <label for="update-path">File path</label>
+          <input
+            id="update-path"
+            type="text"
+            placeholder="path/to/existing.md"
+          />
+          <label for="update-content">Content (Markdown)</label>
+          <textarea
+            id="update-content"
+            placeholder="# Title&#10;&#10;New content…"
+          ></textarea>
+          <label for="update-msg">Commit message (optional)</label>
+          <input id="update-msg" type="text" placeholder="Update memory: …" />
+          <button onclick="doUpdate()">Update</button>
+        </div>
+        <div id="tab-correct" class="hidden">
+          <label for="correct-path">File path</label>
+          <input
+            id="correct-path"
+            type="text"
+            placeholder="path/to/existing.md"
+          />
+          <label for="correct-old">Old content</label>
+          <textarea id="correct-old" placeholder="Text to replace…"></textarea>
+          <label for="correct-new">New content</label>
+          <textarea id="correct-new" placeholder="Replacement text…"></textarea>
+          <label for="correct-msg">Commit message (optional)</label>
+          <input id="correct-msg" type="text" placeholder="Correct memory: …" />
+          <button onclick="doCorrect()">Correct</button>
+        </div>
+      </section>
+
+      <!-- ============ ARCHIVE / RELATED ============ -->
+      <section class="panel">
+        <h2>🗑️ Archive & Related</h2>
+        <label for="archive-path">File path</label>
+        <input id="archive-path" type="text" placeholder="path/to/file.md" />
+        <label for="archive-msg">Commit message (optional)</label>
+        <input id="archive-msg" type="text" placeholder="Archive memory: …" />
+        <button class="danger" onclick="doArchive()">Archive</button>
+        <button class="secondary" onclick="doRelated()">Find related</button>
+        <div id="related-results"></div>
+      </section>
+
+      <!-- ============ REBUILD INDEX ============ -->
+      <section class="panel">
+        <h2>🔄 Rebuild Index</h2>
+        <p style="font-size: 13px; color: var(--muted)">
+          Re-embed all markdown files into the vector index. Use
+          <em>force</em> to recreate the collection from scratch.
+        </p>
+        <label
+          ><input type="checkbox" id="rebuild-force" /> Force (delete &amp;
+          recreate collection)</label
+        >
+        <button onclick="doRebuild()">Rebuild index</button>
+        <div class="result hidden" id="rebuild-result"></div>
+      </section>
+    </main>
+
+    <div class="toast hidden" id="toast"></div>
+
+    <script>
+      const API = "/api/v1";
+
+      // ---------- helpers ----------
+      async function apiCall(path, body) {
+        const res = await fetch(API + path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || `HTTP ${res.status}`);
+        }
+        return data;
+      }
+
+      function showToast(msg, ok = true) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = "toast " + (ok ? "ok" : "err");
+        t.classList.remove("hidden");
+        setTimeout(() => {
+          t.classList.add("hidden");
+        }, 4000);
+      }
+
+      function renderResult(el, data, ok = true) {
+        el.classList.remove("hidden");
+        el.className = "result " + (ok ? "ok" : "err");
+        el.innerHTML =
+          "<pre>" + escapeHtml(JSON.stringify(data, null, 2)) + "</pre>";
+      }
+
+      function escapeHtml(s) {
+        return s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function renderSearchResults(container, results) {
+        container.innerHTML = "";
+        if (!results || results.length === 0) {
+          container.innerHTML = '<div class="result">No results found.</div>';
+          return;
+        }
+        results.forEach((r) => {
+          const div = document.createElement("div");
+          div.className = "search-result";
+          div.innerHTML =
+            `<div class="path">${escapeHtml(r.file_path)} <span class="score">(score: ${r.score.toFixed(3)})</span></div>` +
+            `<div class="snippet">${escapeHtml(r.content.slice(0, 200))}</div>`;
+          div.onclick = () => {
+            document.getElementById("get-path").value = r.file_path;
+            doGet();
+          };
+          container.appendChild(div);
+        });
+      }
+
+      // ---------- health ----------
+      async function checkHealth() {
+        try {
+          const res = await fetch("/health");
+          const data = await res.json();
+          const dot = document.getElementById("status-dot");
+          const txt = document.getElementById("status-text");
+          if (res.ok && data.status === "healthy") {
+            dot.className = "status-dot ok";
+            txt.textContent =
+              "Healthy · ChromaDB " +
+              (data.chroma_connected ? "connected" : "disconnected");
+          } else {
+            dot.className = "status-dot err";
+            txt.textContent = "Degraded";
+          }
+        } catch (e) {
+          document.getElementById("status-dot").className = "status-dot err";
+          document.getElementById("status-text").textContent = "Unreachable";
+        }
+      }
+
+      // ---------- actions ----------
+      async function doSearch() {
+        const query = document.getElementById("search-query").value.trim();
+        if (!query) {
+          showToast("Enter a search query", false);
+          return;
+        }
+        try {
+          const data = await apiCall("/search", {
+            query,
+            limit:
+              parseInt(document.getElementById("search-limit").value) || 10,
+            search_type: document.getElementById("search-type").value,
+          });
+          renderSearchResults(
+            document.getElementById("search-results"),
+            data.results,
+          );
+        } catch (e) {
+          showToast("Search failed: " + e.message, false);
+        }
+      }
+
+      async function doGet() {
+        const file_path = document.getElementById("get-path").value.trim();
+        if (!file_path) {
+          showToast("Enter a file path", false);
+          return;
+        }
+        try {
+          const data = await apiCall("/get", { file_path });
+          renderResult(document.getElementById("get-result"), data);
+        } catch (e) {
+          renderResult(
+            document.getElementById("get-result"),
+            { error: e.message },
+            false,
+          );
+        }
+      }
+
+      async function doRecord() {
+        const file_path = document.getElementById("record-path").value.trim();
+        const content = document.getElementById("record-content").value;
+        const commit_message =
+          document.getElementById("record-msg").value.trim() || null;
+        if (!file_path || !content) {
+          showToast("Path and content are required", false);
+          return;
+        }
+        try {
+          const data = await apiCall("/record", {
+            file_path,
+            content,
+            commit_message,
+          });
+          showToast(
+            "Recorded " + file_path + " (" + data.commit_hash.slice(0, 8) + ")",
+          );
+        } catch (e) {
+          showToast("Record failed: " + e.message, false);
+        }
+      }
+
+      async function doUpdate() {
+        const file_path = document.getElementById("update-path").value.trim();
+        const content = document.getElementById("update-content").value;
+        const commit_message =
+          document.getElementById("update-msg").value.trim() || null;
+        if (!file_path || !content) {
+          showToast("Path and content are required", false);
+          return;
+        }
+        try {
+          const data = await apiCall("/update", {
+            file_path,
+            content,
+            commit_message,
+          });
+          showToast(
+            "Updated " + file_path + " (" + data.commit_hash.slice(0, 8) + ")",
+          );
+        } catch (e) {
+          showToast("Update failed: " + e.message, false);
+        }
+      }
+
+      async function doCorrect() {
+        const file_path = document.getElementById("correct-path").value.trim();
+        const old_content = document.getElementById("correct-old").value;
+        const new_content = document.getElementById("correct-new").value;
+        const commit_message =
+          document.getElementById("correct-msg").value.trim() || null;
+        if (!file_path || !old_content || !new_content) {
+          showToast("Path, old and new content are required", false);
+          return;
+        }
+        try {
+          const data = await apiCall("/correct", {
+            file_path,
+            old_content,
+            new_content,
+            commit_message,
+          });
+          showToast(
+            "Corrected " +
+              file_path +
+              " (" +
+              data.commit_hash.slice(0, 8) +
+              ")",
+          );
+        } catch (e) {
+          showToast("Correct failed: " + e.message, false);
+        }
+      }
+
+      async function doArchive() {
+        const file_path = document.getElementById("archive-path").value.trim();
+        const commit_message =
+          document.getElementById("archive-msg").value.trim() || null;
+        if (!file_path) {
+          showToast("Enter a file path", false);
+          return;
+        }
+        if (!confirm("Archive (delete) " + file_path + "?")) return;
+        try {
+          const data = await apiCall("/archive", { file_path, commit_message });
+          showToast(
+            "Archived " + file_path + " (" + data.commit_hash.slice(0, 8) + ")",
+          );
+        } catch (e) {
+          showToast("Archive failed: " + e.message, false);
+        }
+      }
+
+      async function doRelated() {
+        const file_path = document.getElementById("archive-path").value.trim();
+        if (!file_path) {
+          showToast("Enter a file path", false);
+          return;
+        }
+        try {
+          const data = await apiCall("/related", { file_path, limit: 5 });
+          renderSearchResults(
+            document.getElementById("related-results"),
+            data.related,
+          );
+        } catch (e) {
+          showToast("Related failed: " + e.message, false);
+        }
+      }
+
+      async function doRebuild() {
+        const force = document.getElementById("rebuild-force").checked;
+        try {
+          const data = await apiCall("/rebuild-index", { force });
+          renderResult(document.getElementById("rebuild-result"), data);
+          showToast("Index rebuilt: " + data.files_indexed + " files");
+        } catch (e) {
+          renderResult(
+            document.getElementById("rebuild-result"),
+            { error: e.message },
+            false,
+          );
+        }
+      }
+
+      // ---------- tabs ----------
+      function switchTab(name) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+        ["record", "update", "correct"].forEach((t) => {
+          document
+            .getElementById("tab-" + t)
+            .classList.toggle("hidden", t !== name);
+        });
+      }
+
+      // ---------- init ----------
+      checkHealth();
+      setInterval(checkHealth, 30000);
+    </script>
+  </body>
+</html>
