@@ -11,6 +11,10 @@ from app.models.schemas import MemorySearchResult
 
 logger = logging.getLogger(__name__)
 
+# Timeout (seconds) for git subprocess calls. Prevents hangs when git
+# waits on locks, credential prompts, or slow filesystems.
+GIT_TIMEOUT = 30
+
 
 class GitCommitError(Exception):
     """Raised when a git commit operation fails."""
@@ -44,16 +48,25 @@ class MemoryService:
         
     def _git_init(self):
         """Initialize git repository."""
-        subprocess.run(["git", "init"], cwd=self.repo_path, check=True, capture_output=True)
-        subprocess.run(["git", "config", "user.name", settings.GIT_AUTHOR_NAME], cwd=self.repo_path, check=True)
-        subprocess.run(["git", "config", "user.email", settings.GIT_AUTHOR_EMAIL], cwd=self.repo_path, check=True)
+        subprocess.run(["git", "init"], cwd=self.repo_path, check=True, capture_output=True, timeout=GIT_TIMEOUT)
+        subprocess.run(
+            ["git", "config", "user.name", settings.GIT_AUTHOR_NAME],
+            cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", settings.GIT_AUTHOR_EMAIL],
+            cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT,
+        )
         
         # Create initial commit if empty
         readme = self.repo_path / "README.md"
         if not readme.exists():
             readme.write_text("# DejaVault Repository\n\nCanonical memory storage.")
-            subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True)
-            subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_path, check=True)
+            subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT)
+            subprocess.run(
+                ["git", "commit", "-m", "Initial commit"],
+                cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT,
+            )
             
     async def _init_chromadb(self):
         """Initialize ChromaDB HTTP client."""
@@ -119,13 +132,14 @@ class MemoryService:
         
     def _git_commit(self, message: str) -> str:
         """Commit changes and return commit hash."""
-        subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True)
+        subprocess.run(["git", "add", "."], cwd=self.repo_path, check=True, timeout=GIT_TIMEOUT)
         result = subprocess.run(
             ["git", "commit", "-m", message],
             cwd=self.repo_path,
             capture_output=True,
             text=True,
             check=False,
+            timeout=GIT_TIMEOUT,
         )
         if result.returncode != 0 and "nothing to commit" not in result.stdout:
             raise GitCommitError(f"Git commit failed: {result.stderr}")
@@ -136,6 +150,7 @@ class MemoryService:
             capture_output=True,
             text=True,
             check=True,
+            timeout=GIT_TIMEOUT,
         )
         return result.stdout.strip()
         
