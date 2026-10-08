@@ -6,3 +6,4 @@ chromadb==1.0.15
 python-multipart==0.0.9
 pyyaml==6.0.1
 gitpython==3.1.43
+pytest==8.3.4

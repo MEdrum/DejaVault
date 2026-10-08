@@ -44,7 +44,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest tests/ -v || echo "No tests found yet — see TODO.md"
+          python -m pytest tests/ -v
 
   docker:
     name: Docker build

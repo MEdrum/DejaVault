@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+
     MEMORY_REPO_PATH: str = "/data/memory"
     CHROMA_DB_PATH: str = "/data/chroma"
     API_HOST: str = "0.0.0.0"
@@ -14,10 +16,6 @@ class Settings(BaseSettings):
     # Used by docker-compose for SSH key mounts; not read by the app itself.
     SSH_PRIVATE_KEY_PATH: str = ""
     SSH_PUBLIC_KEY_PATH: str = ""
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 
 settings = Settings()
