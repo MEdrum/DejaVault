@@ -59,12 +59,12 @@ It is designed to run as a Docker container on an internal network, isolated fro
 ### Prerequisites
 
 - Docker with Docker Compose
-- An external Docker network named `agent-internal` (used to connect agents to this service)
+- An external Docker network named `dejavault-net` (used to connect agents to this service)
 
 ### 1. Create the external network (once)
 
 ```bash
-docker network create agent-internal
+docker network create dejavault-net
 ```
 
 ### 2. Configure the environment
@@ -91,8 +91,10 @@ This starts two containers:
 
 ### 4. Verify it's running
 
+The service is **not exposed on the host** — it's only reachable via the `dejavault-net` Docker network. From any container on that network (e.g. an agent), use:
+
 ```bash
-curl http://localhost:8000/health
+curl http://dejavault:8000/health
 ```
 
 Expected response:
@@ -109,7 +111,7 @@ Expected response:
 ### 5. Record your first memory
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/record \
+curl -X POST http://dejavault:8000/api/v1/record \
   -H "Content-Type: application/json" \
   -d '{"file_path": "projects/example.md", "content": "# Example\n\nThis is my first memory."}'
 ```
@@ -117,7 +119,7 @@ curl -X POST http://localhost:8000/api/v1/record \
 ### 6. Search it
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/search \
+curl -X POST http://dejavault:8000/api/v1/search \
   -H "Content-Type: application/json" \
   -d '{"query": "first memory", "limit": 5, "search_type": "hybrid"}'
 ```
@@ -253,7 +255,7 @@ POST /api/v1/rebuild-index
 │              └─────────────────────┘                        │
 └─────────────────────────────────────────────────────────────┘
                               │
-                    agent-internal network
+                    dejavault-net network
                               │
               ┌───────────────┼───────────────┐
               ▼               ▼               ▼
@@ -279,12 +281,11 @@ services:
   dejavault:
     build: .
     container_name: dejavault
-    ports:
-      - "8000:8000"
+    # No host port mapping: only reachable via dejavault-net network
     volumes:
       - /path/to/your/storage/agent-memory:/data:rw
     networks:
-      - agent-internal
+      - dejavault-net
     env_file:
       - .env
 
@@ -294,14 +295,14 @@ services:
     volumes:
       - /path/to/your/storage/agent-memory/chroma:/chroma/chroma
     networks:
-      - agent-internal
+      - dejavault-net
     environment:
       - CHROMA_SERVER_HOST=0.0.0.0
       - CHROMA_SERVER_HTTP_PORT=8000
       - ANONYMIZED_TELEMETRY=False
 
 networks:
-  agent-internal:
+  dejavault-net:
     external: true
 ```
 
@@ -380,8 +381,8 @@ git diff <commit1> <commit2>
 #### Rebuild Index
 
 ```bash
-# Via API
-curl -X POST http://localhost:8000/api/v1/rebuild-index \
+# Via API (from a container on the dejavault-net network)
+curl -X POST http://dejavault:8000/api/v1/rebuild-index \
   -H "Content-Type: application/json" \
   -d '{"force": true}'
 
@@ -437,8 +438,8 @@ Containers use `restart: unless-stopped` - they start automatically.
 #### Index Corruption
 
 ```bash
-# Force rebuild via API
-curl -X POST http://localhost:8000/api/v1/rebuild-index \
+# Force rebuild via API (from a container on the dejavault-net network)
+curl -X POST http://dejavault:8000/api/v1/rebuild-index \
   -H "Content-Type: application/json" \
   -d '{"force": true}'
 
@@ -484,8 +485,8 @@ docker logs dejavault-chroma
 # Verify network
 docker exec dejavault ping dejavault-chroma
 
-# Check chroma health
-curl http://localhost:8000/api/v2/heartbeat
+# Check chroma health (from a container on the dejavault-net network)
+curl http://dejavault-chroma:8000/api/v2/heartbeat
 ```
 
 ### Search Returns No Results
@@ -494,8 +495,8 @@ curl http://localhost:8000/api/v2/heartbeat
 # Check if files exist
 ls -la /home/fabian/docker/storage/agent-memory/memory/
 
-# Rebuild index
-curl -X POST http://localhost:8000/api/v1/rebuild-index -H "Content-Type: application/json" -d '{"force": true}'
+# Rebuild index (from a container on the dejavault-net network)
+curl -X POST http://dejavault:8000/api/v1/rebuild-index -H "Content-Type: application/json" -d '{"force": true}'
 ```
 
 ### Git Errors
@@ -543,27 +544,29 @@ dejavault/
 
 ### Testing
 
+The service is only reachable via the `dejavault-net` Docker network. Run these from a container on that network (or use `docker exec dejavault curl ...`):
+
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://dejavault:8000/health
 
 # Record a memory
-curl -X POST http://localhost:8000/api/v1/record \
+curl -X POST http://dejavault:8000/api/v1/record \
   -H "Content-Type: application/json" \
   -d '{"file_path": "test.md", "content": "# Test\n\nContent", "commit_message": "Test"}'
 
 # Search
-curl -X POST http://localhost:8000/api/v1/search \
+curl -X POST http://dejavault:8000/api/v1/search \
   -H "Content-Type: application/json" \
   -d '{"query": "test", "limit": 5, "search_type": "hybrid"}'
 
 # Get memory
-curl -X POST http://localhost:8000/api/v1/get \
+curl -X POST http://dejavault:8000/api/v1/get \
   -H "Content-Type: application/json" \
   -d '{"file_path": "test.md"}'
 
 # List related
-curl -X POST http://localhost:8000/api/v1/related \
+curl -X POST http://dejavault:8000/api/v1/related \
   -H "Content-Type: application/json" \
   -d '{"file_path": "test.md", "limit": 3}'
 ```

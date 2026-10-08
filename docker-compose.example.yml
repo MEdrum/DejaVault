@@ -12,9 +12,9 @@ services:
     hostname: dejavault
     restart: unless-stopped
     networks:
-      - agent-internal
-    ports:
-      - "8000:8000"
+      - dejavault-net
+    # No host port mapping: the service is only reachable via the
+    # dejavault-net Docker network (e.g. http://dejavault:8000).
     volumes:
       # Host path to persistent storage (memory repo + chroma data)
       - /path/to/your/storage/agent-memory:/data:rw
@@ -54,7 +54,7 @@ services:
     hostname: dejavault-chroma
     restart: unless-stopped
     networks:
-      - agent-internal
+      - dejavault-net
     volumes:
       - /path/to/your/storage/agent-memory/chroma:/chroma/chroma
     environment:
@@ -79,5 +79,5 @@ services:
       - /tmp:noexec,nosuid,size=256m
 
 networks:
-  agent-internal:
+  dejavault-net:
     external: true
