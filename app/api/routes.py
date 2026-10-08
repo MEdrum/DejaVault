@@ -66,6 +66,8 @@ async def record_memory(request: MemoryRecordRequest, svc: ServiceDep):
         return MemoryRecordResponse(**result)
     except InvalidPathError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except FileExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:  # noqa: BLE001 - API error boundary
         raise HTTPException(status_code=500, detail=str(e))
 

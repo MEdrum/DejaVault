@@ -199,8 +199,14 @@ class MemoryService:
         return {"file_path": file_path, "content": content, "metadata": {"file_path": file_path}}
         
     def record(self, file_path: str, content: str, commit_message: str | None = None) -> dict:
-        """Record new memory."""
+        """Record new memory.
+
+        Raises:
+            FileExistsError: if the file already exists (use ``update`` instead).
+        """
         full_path = self._resolve_path(file_path)
+        if full_path.exists():
+            raise FileExistsError(f"Memory file already exists: {file_path} (use update to modify)")
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_text(content, encoding="utf-8")
         
