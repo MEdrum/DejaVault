@@ -243,4 +243,65 @@ def create_mcp_server(service: MemoryService) -> MCPServer:
         result = asyncio.run(service.rebuild_index(force))
         return f"Indexed {result['files_indexed']} files"
 
+    @server.tool(
+        description=(
+            "List the memory repository structure: all markdown files, folders, "
+            "and a nested file tree. Use this to discover what memories exist, "
+            "find the exact file_path for get_memory, or explore the organization "
+            "of the repository before searching.\n\n"
+            "HOW TO USE:\n"
+            "- prefix: optional subdirectory to scope the listing to, e.g. 'notes' "
+            "lists only files under notes/. Empty string (default) lists everything.\n\n"
+            "RESPONSE FORMAT:\n"
+            "  FILES:\n"
+            "  - path/to/file.md\n"
+            "  ...\n"
+            "  FOLDERS:\n"
+            "  - path/to/folder\n"
+            "  ...\n"
+            "  TREE:\n"
+            "  A nested indented tree where folders are shown with a trailing '/'\n"
+            "  and files are shown as 'path/to/file.md'. Example:\n"
+            "    notes/\n"
+            "      ideas.md\n"
+            "      project_x/\n"
+            "        solution.md\n"
+            "If the prefix is not a directory, returns: 'Error: Not a directory: <prefix>'"
+        )
+    )
+    def list_files(prefix: str = "") -> str:
+        """List the memory repository structure."""
+        try:
+            result = service.list_files(prefix)
+        except FileNotFoundError as e:
+            return f"Error: {e}"
+        except ValueError as e:
+            return f"Error: {e}"
+
+        lines = ["FILES:"]
+        if result["files"]:
+            lines.extend(f"- {f}" for f in result["files"])
+        else:
+            lines.append("  (none)")
+        lines.append("FOLDERS:")
+        if result["folders"]:
+            lines.extend(f"- {d}" for d in result["folders"])
+        else:
+            lines.append("  (none)")
+        lines.append("TREE:")
+
+        def _render_tree(node: dict, indent: int = 0) -> list[str]:
+            out = []
+            pad = "  " * indent
+            for key, value in node.items():
+                if value is None:
+                    out.append(f"{pad}{key}")
+                else:
+                    out.append(f"{pad}{key}/")
+                    out.extend(_render_tree(value, indent + 1))
+            return out
+
+        lines.extend(_render_tree(result["tree"]))
+        return "\n".join(lines)
+
     return server

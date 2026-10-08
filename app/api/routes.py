@@ -15,6 +15,8 @@ from app.models.schemas import (
     MemoryGetResponse,
     MemoryListRelatedRequest,
     MemoryListRelatedResponse,
+    MemoryListRequest,
+    MemoryListResponse,
     MemoryRecordRequest,
     MemoryRecordResponse,
     MemorySearchRequest,
@@ -117,6 +119,19 @@ async def archive_memory(request: MemoryArchiveRequest, svc: ServiceDep):
 async def list_related(request: MemoryListRelatedRequest, svc: ServiceDep):
     related = svc.list_related(request.file_path, request.limit)
     return MemoryListRelatedResponse(related=related)
+
+
+@router.post("/list", response_model=MemoryListResponse)
+async def list_memories(request: MemoryListRequest, svc: ServiceDep):
+    try:
+        result = svc.list_files(request.prefix)
+        return MemoryListResponse(**result)
+    except InvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:  # noqa: BLE001 - API error boundary
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/rebuild-index", response_model=IndexRebuildResponse)

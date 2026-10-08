@@ -13,7 +13,9 @@ class TestLogLevelConfig:
     def test_basic_config_uses_settings_log_level(self):
         """main.py must pass settings.LOG_LEVEL to logging.basicConfig."""
         with mock.patch("logging.basicConfig") as mock_basic_config:
-            importlib.import_module("app.main")
+            # Force a fresh import so basicConfig runs even if another test
+            # already imported app.main (module caching would skip it).
+            importlib.reload(importlib.import_module("app.main"))
 
         assert mock_basic_config.called
         kwargs = mock_basic_config.call_args.kwargs

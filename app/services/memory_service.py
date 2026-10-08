@@ -239,6 +239,47 @@ class MemoryService:
             raise InvalidPathError(f"Path escapes the memory repository: {file_path}")
         return full_path
 
+    def list_files(self, prefix: str = "") -> dict:
+        """List the memory repository structure.
+
+        Returns a dict with:
+          - ``files``: list of markdown file paths (relative to repo root)
+          - ``folders``: list of directory paths (relative to repo root)
+          - ``tree``: nested dict representing the folder/file hierarchy
+
+        Args:
+            prefix: optional subdirectory to scope the listing to
+                (e.g. "notes" lists only files under notes/).
+        """
+        base = self._resolve_path(prefix) if prefix else self.repo_path.resolve()
+        if not base.is_dir():
+            raise FileNotFoundError(f"Not a directory: {prefix or '/'}")
+
+        files: list[str] = []
+        folders: list[str] = []
+        for p in sorted(base.rglob("*")):
+            if ".git" in p.parts:
+                continue
+            rel = p.relative_to(self.repo_path)
+            if p.is_dir():
+                folders.append(str(rel))
+            elif p.is_file() and p.suffix == ".md":
+                files.append(str(rel))
+
+        # Build a nested tree: {"folder": {"subfolder": {...}, "file.md": None}}
+        def _build_tree(paths: list[str]) -> dict:
+            tree: dict = {}
+            for path in paths:
+                parts = Path(path).parts
+                node = tree
+                for part in parts[:-1]:
+                    node = node.setdefault(part, {})
+                node[parts[-1]] = None
+            return tree
+
+        tree = _build_tree(files)
+        return {"files": files, "folders": folders, "tree": tree}
+
     def get(self, file_path: str) -> dict | None:
         """Get a memory file by path."""
         full_path = self._resolve_path(file_path)

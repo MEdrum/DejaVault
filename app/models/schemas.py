@@ -92,6 +92,16 @@ class MemoryListRelatedResponse(BaseModel):
     related: list[MemorySearchResult]
 
 
+class MemoryListRequest(BaseModel):
+    prefix: str = Field("", description="Optional subdirectory to scope the listing to")
+
+
+class MemoryListResponse(BaseModel):
+    files: list[str]
+    folders: list[str]
+    tree: dict
+
+
 class IndexRebuildRequest(BaseModel):
     force: bool = False
 
