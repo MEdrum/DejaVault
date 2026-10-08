@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     CHROMA_PORT: int = 8000
     GIT_AUTHOR_NAME: str = "DejaVault"
     GIT_AUTHOR_EMAIL: str = "dejavault@local"
+    # Used by docker-compose for SSH key mounts; not read by the app itself.
+    SSH_PRIVATE_KEY_PATH: str = ""
+    SSH_PUBLIC_KEY_PATH: str = ""
 
     class Config:
         env_file = ".env"

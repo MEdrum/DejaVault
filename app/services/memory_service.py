@@ -16,6 +16,10 @@ class GitCommitError(Exception):
     """Raised when a git commit operation fails."""
 
 
+class InvalidPathError(ValueError):
+    """Raised when a file path escapes the memory repository."""
+
+
 class MemoryService:
     def __init__(self, repo_path: str, chroma_path: str):
         self.repo_path = Path(repo_path)
@@ -174,9 +178,21 @@ class MemoryService:
         unique_results.sort(key=lambda x: x.score, reverse=True)
         return unique_results[:limit]
         
+    def _resolve_path(self, file_path: str) -> Path:
+        """Resolve a file path and ensure it stays inside the repo.
+
+        Raises:
+            InvalidPathError: if the path escapes the repository root.
+        """
+        full_path = (self.repo_path / file_path).resolve()
+        repo_root = self.repo_path.resolve()
+        if full_path != repo_root and repo_root not in full_path.parents:
+            raise InvalidPathError(f"Path escapes the memory repository: {file_path}")
+        return full_path
+
     def get(self, file_path: str) -> dict | None:
         """Get a memory file by path."""
-        full_path = self.repo_path / file_path
+        full_path = self._resolve_path(file_path)
         if not full_path.exists() or not full_path.is_file():
             return None
         content = full_path.read_text(encoding="utf-8")
@@ -184,7 +200,7 @@ class MemoryService:
         
     def record(self, file_path: str, content: str, commit_message: str | None = None) -> dict:
         """Record new memory."""
-        full_path = self.repo_path / file_path
+        full_path = self._resolve_path(file_path)
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_text(content, encoding="utf-8")
         
@@ -203,7 +219,7 @@ class MemoryService:
         
     def update(self, file_path: str, content: str, commit_message: str | None = None) -> dict:
         """Update existing memory."""
-        full_path = self.repo_path / file_path
+        full_path = self._resolve_path(file_path)
         if not full_path.exists():
             raise FileNotFoundError(f"Memory file not found: {file_path}")
         full_path.write_text(content, encoding="utf-8")
@@ -223,7 +239,7 @@ class MemoryService:
         
     def correct(self, file_path: str, old_content: str, new_content: str, commit_message: str | None = None) -> dict:
         """Correct memory content."""
-        full_path = self.repo_path / file_path
+        full_path = self._resolve_path(file_path)
         if not full_path.exists():
             raise FileNotFoundError(f"Memory file not found: {file_path}")
         current = full_path.read_text(encoding="utf-8")
@@ -247,7 +263,7 @@ class MemoryService:
         
     def archive(self, file_path: str, commit_message: str | None = None) -> dict:
         """Archive (delete) a memory file."""
-        full_path = self.repo_path / file_path
+        full_path = self._resolve_path(file_path)
         if not full_path.exists():
             raise FileNotFoundError(f"Memory file not found: {file_path}")
         full_path.unlink()

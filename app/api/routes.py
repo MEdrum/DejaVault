@@ -22,7 +22,7 @@ from app.models.schemas import (
     MemoryUpdateRequest,
     MemoryUpdateResponse,
 )
-from app.services.memory_service import MemoryService
+from app.services.memory_service import InvalidPathError, MemoryService
 
 router = APIRouter()
 
@@ -50,7 +50,10 @@ async def search_memory(request: MemorySearchRequest, svc: ServiceDep):
 
 @router.post("/get", response_model=MemoryGetResponse)
 async def get_memory(request: MemoryGetRequest, svc: ServiceDep):
-    result = svc.get(request.file_path)
+    try:
+        result = svc.get(request.file_path)
+    except InvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if result is None:
         raise HTTPException(status_code=404, detail=f"Memory file not found: {request.file_path}")
     return MemoryGetResponse(**result)
@@ -61,6 +64,8 @@ async def record_memory(request: MemoryRecordRequest, svc: ServiceDep):
     try:
         result = svc.record(request.file_path, request.content, request.commit_message)
         return MemoryRecordResponse(**result)
+    except InvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001 - API error boundary
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -70,6 +75,8 @@ async def update_memory(request: MemoryUpdateRequest, svc: ServiceDep):
     try:
         result = svc.update(request.file_path, request.content, request.commit_message)
         return MemoryUpdateResponse(**result)
+    except InvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  # noqa: BLE001 - API error boundary
@@ -81,6 +88,8 @@ async def correct_memory(request: MemoryCorrectRequest, svc: ServiceDep):
     try:
         result = svc.correct(request.file_path, request.old_content, request.new_content, request.commit_message)
         return MemoryCorrectResponse(**result)
+    except InvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
@@ -94,6 +103,8 @@ async def archive_memory(request: MemoryArchiveRequest, svc: ServiceDep):
     try:
         result = svc.archive(request.file_path, request.commit_message)
         return MemoryArchiveResponse(**result)
+    except InvalidPathError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:  # noqa: BLE001 - API error boundary
