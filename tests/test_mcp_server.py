@@ -73,8 +73,17 @@ class TestMCPToolBehavior:
         assert "Archived test.md" in result
 
     def test_correct_memory(self, mcp_server, service: MemoryService):
-        call_tool(mcp_server, "record_memory", file_path="test.md", content="foo bar foo", commit_message="init")
+        call_tool(mcp_server, "record_memory", file_path="test.md", content="foo bar baz", commit_message="init")
         result = call_tool(mcp_server, "correct_memory", file_path="test.md", old_content="foo", new_content="X")
         assert "Corrected test.md" in result
         content = call_tool(mcp_server, "get_memory", file_path="test.md")
-        assert content == "X bar foo"
+        assert content == "X bar baz"
+
+    def test_correct_memory_multiple_matches_returns_error(self, mcp_server, service: MemoryService):
+        call_tool(mcp_server, "record_memory", file_path="test.md", content="foo bar foo", commit_message="init")
+        result = call_tool(mcp_server, "correct_memory", file_path="test.md", old_content="foo", new_content="X")
+        assert "Error" in result
+        assert "matches 2 times" in result
+        # File must be unchanged
+        content = call_tool(mcp_server, "get_memory", file_path="test.md")
+        assert content == "foo bar foo"

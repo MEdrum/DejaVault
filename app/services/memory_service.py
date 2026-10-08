@@ -293,15 +293,27 @@ class MemoryService:
         return {"file_path": file_path, "commit_hash": commit_hash, "message": msg}
         
     def correct(self, file_path: str, old_content: str, new_content: str, commit_message: str | None = None) -> dict:
-        """Correct memory content."""
+        """Correct memory content.
+
+        Raises:
+            ValueError: if ``old_content`` is empty, not found, or matches
+                more than once (to avoid replacing the wrong occurrence).
+        """
         if not old_content:
             raise ValueError("old_content must not be empty")
         full_path = self._resolve_path(file_path)
         if not full_path.exists():
             raise FileNotFoundError(f"Memory file not found: {file_path}")
         current = full_path.read_text(encoding="utf-8")
-        if old_content not in current:
+        occurrences = current.count(old_content)
+        if occurrences == 0:
             raise ValueError("Old content not found in file")
+        if occurrences > 1:
+            raise ValueError(
+                f"Old content matches {occurrences} times in file; "
+                "refusing to replace to avoid changing the wrong occurrence. "
+                "Include more surrounding context in old_content to make it unique."
+            )
         new_full = current.replace(old_content, new_content, 1)
         full_path.write_text(new_full, encoding="utf-8")
         

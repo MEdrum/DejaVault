@@ -40,10 +40,18 @@ class TestUpdate:
 
 
 class TestCorrect:
-    def test_correct_replaces_first_occurrence(self, service: MemoryService):
-        service.record("test.md", "foo bar foo baz foo", "init")
+    def test_correct_replaces_unique_occurrence(self, service: MemoryService):
+        service.record("test.md", "foo bar baz", "init")
         service.correct("test.md", "foo", "X")
-        assert (service.repo_path / "test.md").read_text() == "X bar foo baz foo"
+        assert (service.repo_path / "test.md").read_text() == "X bar baz"
+
+    def test_correct_multiple_matches_raises(self, service: MemoryService):
+        """Multiple matches must be rejected to avoid replacing the wrong one."""
+        service.record("test.md", "foo bar foo baz foo", "init")
+        with pytest.raises(ValueError, match="matches 3 times"):
+            service.correct("test.md", "foo", "X")
+        # File must be unchanged after the refusal
+        assert (service.repo_path / "test.md").read_text() == "foo bar foo baz foo"
 
     def test_correct_empty_old_content_raises(self, service: MemoryService):
         service.record("test.md", "content", "init")

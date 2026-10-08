@@ -126,14 +126,18 @@ def create_mcp_server(service: MemoryService) -> MCPServer:
             "Use this when only a small part of a memory is wrong and you want to fix just that part.\n\n"
             "HOW TO USE:\n"
             "- file_path: path to the existing file (required).\n"
-            "- old_content: the exact text to find and replace (required). Only the FIRST "
-            "occurrence is replaced. Must be at least 3 characters.\n"
+            "- old_content: the exact text to find and replace (required). Must be at least 3 "
+            "characters and must match EXACTLY ONCE in the file. If it matches multiple times, "
+            "the tool refuses to replace to avoid changing the wrong occurrence — in that case "
+            "include more surrounding context in old_content to make it unique.\n"
             "- new_content: the replacement text (required).\n"
             "- commit_message: optional git commit message.\n\n"
             "RESPONSE FORMAT:\n"
             "  Corrected <file_path> (commit <8-char-hash>)\n"
             "Errors: 'Error: Memory file not found: <path>' or "
-            "'Error: Old content not found in file' or 'Error: old_content must not be empty'"
+            "'Error: Old content not found in file' or "
+            "'Error: Old content matches N times in file; refusing to replace...' or "
+            "'Error: old_content must not be empty'"
         )
     )
     def correct_memory(file_path: str, old_content: str, new_content: str, commit_message: str | None = None) -> str:
