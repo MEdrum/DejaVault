@@ -239,13 +239,15 @@ class MemoryService:
         
     def correct(self, file_path: str, old_content: str, new_content: str, commit_message: str | None = None) -> dict:
         """Correct memory content."""
+        if not old_content:
+            raise ValueError("old_content must not be empty")
         full_path = self._resolve_path(file_path)
         if not full_path.exists():
             raise FileNotFoundError(f"Memory file not found: {file_path}")
         current = full_path.read_text(encoding="utf-8")
         if old_content not in current:
             raise ValueError("Old content not found in file")
-        new_full = current.replace(old_content, new_content)
+        new_full = current.replace(old_content, new_content, 1)
         full_path.write_text(new_full, encoding="utf-8")
         
         msg = commit_message or f"Correct memory: {file_path}"

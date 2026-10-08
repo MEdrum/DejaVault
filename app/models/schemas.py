@@ -57,7 +57,7 @@ class MemoryUpdateResponse(BaseModel):
 
 class MemoryCorrectRequest(BaseModel):
     file_path: str
-    old_content: str
+    old_content: str = Field(..., min_length=3, description="Text to replace (must not be empty)")
     new_content: str
     commit_message: str | None = None
 
